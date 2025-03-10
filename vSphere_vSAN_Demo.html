@@ -1,0 +1,1216 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>vSAN ESA vSphere</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Roboto', Arial, sans-serif;
+        }
+        body {
+            background: linear-gradient(135deg, #e0f7fa, #b2ebf2);
+            color: #212121;
+            padding: 20px;
+            line-height: 1.6;
+            position: relative;
+            overflow-x: hidden;
+        }
+        .container {
+            max-width: 1400px;
+            min-width: 1280px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            position: relative;
+            min-height: 700px;
+        }
+        h1 {
+            background: linear-gradient(90deg, #0078d4, #00bcd4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-align: center;
+            margin-bottom: 25px;
+            font-size: 2.2em;
+            font-weight: 700;
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 25px;
+            padding: 15px;
+            background: #f7f9fc;
+            border-radius: 10px;
+            justify-content: center;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);
+        }
+        select, button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 25px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.3s;
+        }
+        button {
+            background: linear-gradient(90deg, #0078d4, #005ea2);
+            color: white;
+        }
+        button:hover {
+            transform: scale(1.05);
+            background: linear-gradient(90deg, #005ea2, #003087);
+        }
+        button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+        .host-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .cluster {
+            display: flex;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            gap: 20px;
+            padding-bottom: 15px;
+        }
+        .host-cluster {
+            display: flex;
+            flex-direction: column; /* Stack VMs above host */
+            align-items: center;
+            min-width: 200px;
+            flex-shrink: 0;
+        }
+        .vms {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-content: flex-end; /* Align VMs to the bottom */
+            gap: 6px;
+            max-width: 200px; /* Matches host min-width */
+            min-height: 90px; /* Reserve space for 3 rows (25px height + 6px gap per row) */
+            height: 90px; /* Fixed height for 3 rows */
+            margin-bottom: 10px;
+            flex-direction: column-reverse; /* Stack VMs from bottom up */
+        }
+        .host-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .host {
+            background: linear-gradient(135deg, #eceff1, #cfd8dc);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            transition: transform 0.2s, box-shadow 0.3s;
+            cursor: pointer;
+            min-width: 200px;
+            position: relative;
+        }
+        .host:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 15px rgba(0,0,0,0.1);
+        }
+        .host.selected {
+            border: 3px solid #0078d4;
+        }
+        .host.failed {
+            background: linear-gradient(135deg, #d13438, #b71c1c);
+            color: white;
+        }
+        .host-label {
+            margin-top: 5px;
+            font-weight: 500;
+            font-size: 1em;
+        }
+        .recover-btn {
+            margin-top: 5px;
+            padding: 5px 15px;
+            font-size: 0.9em;
+            background: linear-gradient(90deg, #4caf50, #388e3c);
+        }
+        .recover-btn:hover {
+            background: linear-gradient(90deg, #388e3c, #2e7d32);
+        }
+        .metrics {
+            display: flex;
+            justify-content: center;
+            gap: 25px;
+            margin: 10px 0;
+        }
+        .metric {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            position: relative;
+        }
+        .metric i {
+            font-size: 1.2em;
+            color: #0078d4;
+        }
+        .metric span {
+            font-size: 1.1em;
+            font-weight: 700;
+            min-width: 30px;
+            text-align: left;
+        }
+        .bar {
+            width: 50px;
+            height: 10px;
+            background: #e0e0e0;
+            border-radius: 5px;
+            position: relative;
+        }
+        .fill {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            border-radius: 5px;
+            transition: width 0.5s ease;
+        }
+        .fill.cpu.blue { background: #2196f3; }
+        .fill.cpu.amber { background: #ff9800; }
+        .fill.cpu.red { background: #d13438; }
+        .fill.memory.blue { background: #0288d1; }
+        .fill.memory.amber { background: #f57c00; }
+        .fill.memory.red { background: #b71c1c; }
+        .marker {
+            position: absolute;
+            width: 2px;
+            height: 20px;
+            background: #333;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        .vm {
+            width: 55px;
+            height: 25px;
+            background: #ffeb3b;
+            border-radius: 6px;
+            margin: 3px;
+            transition: transform 0.2s, box-shadow 0.3s;
+            cursor: pointer;
+            font-size: 0.8em;
+            line-height: 25px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .vm.moving {
+            animation: vmotion 1s ease-in-out;
+        }
+        @keyframes vmotion {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(0.8); opacity: 0.5; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .vm:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        }
+        .vm.selected {
+            border: 3px solid #0078d4;
+        }
+        .vm.impacted {
+            background: #ff5722;
+        }
+        .vm.resync {
+            background: #9c27b0;
+        }
+        .vm.unrecoverable {
+            background: #ffffff;
+            color: #000000;
+            border: 1px solid #000000;
+        }
+        .vm:hover::after {
+            content: 'RAID: ' attr(data-policy);
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            white-space: nowrap;
+        }
+        .separator {
+            width: 98%;
+            height: 2px;
+            background: linear-gradient(90deg, #0078d4, #00bcd4);
+            margin: 12px auto;
+            border-radius: 2px;
+        }
+        .drives {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            justify-items: center;
+            margin-top: 10px;
+        }
+        .drive {
+            width: 50px;
+            height: 30px;
+            background: #4caf50;
+            border-radius: 8px;
+            transition: all 0.3s;
+            cursor: pointer;
+            font-size: 0.8em;
+            line-height: 30px;
+            text-align: center;
+            color: white;
+            position: relative;
+        }
+        .drive::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255,255,255,0.3);
+            border-radius: 8px;
+            transform: translate(-50%, -50%);
+            transition: width 0.3s, height 0.3s;
+        }
+        .drive:active::after {
+            width: 100%;
+            height: 100%;
+        }
+        .drive.selected {
+            border: 3px solid #0078d4;
+        }
+        .drive.failed {
+            background: #d13438;
+        }
+        .drive.performance {
+            background: #00bcd4;
+            border: 3px solid #0288d1;
+        }
+        .drive.capacity {
+            background: #ff9800;
+            border: 3px solid #f57c00;
+        }
+        .drive.parity {
+            background: #4caf50;
+            color: #ff9800;
+            font-weight: bold;
+        }
+        .drive.overlap {
+            background: linear-gradient(90deg, #00bcd4 50%, #ff9800 50%);
+            border: 3px solid #0288d1;
+            color: white;
+        }
+        .data-placement {
+            margin-top: 25px;
+            padding: 20px;
+            background: #f7f9fc;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .data-placement h3 {
+            color: #0078d4;
+            margin-bottom: 15px;
+            font-weight: 500;
+        }
+        .leg {
+            display: flex;
+            gap: 12px;
+            margin: 8px 0;
+            justify-content: center;
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .component {
+            width: 35px;
+            height: 35px;
+            border-radius: 8px;
+            text-align: center;
+            line-height: 35px;
+            color: white;
+            transition: all 0.3s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .component.performance {
+            background: #00bcd4;
+        }
+        .component.capacity {
+            background: #ff9800;
+        }
+        .component.parity {
+            background: #4caf50;
+            color: #ff9800;
+            font-weight: bold;
+        }
+        .component.highlighted {
+            border: 3px solid #0078d4;
+        }
+        .component.resync {
+            background: #9c27b0;
+        }
+        .help-container {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 20;
+        }
+        .help-icon {
+            font-size: 1.5em;
+            color: #0078d4;
+            cursor: pointer;
+            transition: transform 0.2s, color 0.2s;
+        }
+        .help-icon:hover {
+            transform: scale(1.1);
+            color: #005ea2;
+        }
+        .help-box {
+            display: none;
+            position: absolute;
+            top: 30px;
+            left: 0;
+            font-size: 0.9em;
+            color: #fff;
+            background: rgba(33, 33, 33, 0.85);
+            padding: 15px;
+            border-radius: 8px;
+            width: 350px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+        .help-box.visible {
+            display: block;
+        }
+        .help-box ol {
+            margin-left: 20px;
+        }
+        .help-box li {
+            margin-bottom: 5px;
+        }
+        .legend {
+            margin-top: 25px;
+            padding: 15px;
+            background: #f7f9fc;
+            border-radius: 10px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            max-width: 100%;
+            margin-bottom: 20px;
+        }
+        .legend div {
+            display: flex;
+            align-items: center;
+            text-align: left;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 8px;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .wave {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100px;
+            fill: rgba(0, 120, 212, 0.1);
+            z-index: -1;
+        }
+        .mobile-warning {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            text-align: center;
+            z-index: 100;
+        }
+        @media (max-width: 1279px) {
+            .container {
+                display: none;
+            }
+            .mobile-warning {
+                display: block;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="mobile-warning">
+        <h2>Screen Size Warning</h2>
+        <p>Please use a screen 14 inches or larger for the best experience.</p>
+    </div>
+    <div class="container">
+        <h1>vSAN ESA with vSphere Features</h1>
+        <div class="controls">
+            <div class="host-control">
+                <button onclick="changeHostCount(-1)"><i class="fas fa-minus"></i></button>
+                <span id="hostCount">3</span> Hosts
+                <button onclick="changeHostCount(1)"><i class="fas fa-plus"></i></button>
+            </div>
+            <select id="failureTarget">
+                <option value="host">Host</option>
+                <option value="drive">Drive</option>
+            </select>
+            <button onclick="simulateFailure()"><i class="fas fa-play"></i> Simulate Failure</button>
+            <button onclick="simulateVMotion()" id="vmotionBtn" disabled><i class="fas fa-exchange-alt"></i> vMotion</button>
+            <button onclick="simulateDRS()" id="drsBtn"><i class="fas fa-balance-scale"></i> DRS Balance</button>
+            <button onclick="resetSimulation()"><i class="fas fa-redo"></i> Reset</button>
+        </div>
+        <div class="cluster" id="cluster"></div>
+        <div class="data-placement">
+            <h3>Data Placement</h3>
+            <div id="dataPlacement"></div>
+        </div>
+        <div class="legend">
+            <div><span class="legend-color" style="background: #ffeb3b;"></span> Normal VM</div>
+            <div><span class="legend-color" style="background: #ff5722;"></span> Impacted VM</div>
+            <div><span class="legend-color" style="background: #9c27b0;"></span> Resyncing VM</div>
+            <div><span class="legend-color" style="background: #ffffff; border: 1px solid #000000;"></span> Unrecoverable VM</div>
+            <div><span class="legend-color" style="background: #4caf50;"></span> Normal Drive</div>
+            <div><span class="legend-color" style="background: #d13438;"></span> Failed Drive/Host</div>
+            <div><span class="legend-color" style="background: #00bcd4; border: 3px solid #0288d1;"></span> Performance Leg Drive</div>
+            <div><span class="legend-color" style="background: #ff9800; border: 3px solid #f57c00;"></span> Capacity Leg Data Drive</div>
+            <div><span class="legend-color" style="background: #4caf50; color: #ff9800; font-weight: bold;">P</span> Parity Drive</div>
+            <div><span class="legend-color" style="background: linear-gradient(90deg, #00bcd4 50%, #ff9800 50%); border: 3px solid #0288d1;"></span> Overlap (Perf + Cap)</div>
+        </div>
+        <div class="help-container">
+            <span class="help-icon"><i class="fas fa-question-circle"></i></span>
+            <div class="help-box">
+                <strong>Steps to Use:</strong>
+                <ol>
+                    <li>Adjust host count (3-8) using +/- buttons.</li>
+                    <li>Select a host, drive, or VM by clicking it.</li>
+                    <li><strong>vMotion:</strong> Select a VM, then click "vMotion" to move it to another host.</li>
+                    <li><strong>DRS Balance:</strong> Click "DRS Balance" to evenly distribute VMs and balance CPU/Memory across hosts.</li>
+                    <li><strong>Simulate Failure:</strong> Choose "Host" or "Drive" from dropdown, select target, then click "Simulate Failure".</li>
+                    <li><strong>Recover Host:</strong> After a host failure, click "Recover" below the failed host to restore it.</li>
+                    <li>Click "Reset" to start over.</li>
+                </ol>
+            </div>
+        </div>
+        <svg class="wave" viewBox="0 0 1440 100" preserveAspectRatio="none">
+            <path d="M0,60 C360,80 1080,20 1440,60 V100 H0 Z" />
+        </svg>
+    </div>
+
+    <script>
+        const cluster = document.getElementById('cluster');
+        const dataPlacement = document.getElementById('dataPlacement');
+        const hostCountDisplay = document.getElementById('hostCount');
+        const numDrives = 6;
+        const raidPolicies = ['RAID-1', 'RAID-5', 'RAID-6'];
+        const baseNames = ['Web', 'DB', 'App', 'M1', 'F1'];
+        const vmComponents = {};
+        let numHosts = 3;
+
+        const minNodes = { 'RAID-1': 3, 'RAID-5': 3, 'RAID-6': 6 };
+        const fttValues = { 'RAID-1': 1, 'RAID-5': 1, 'RAID-6': 2 };
+        const expectedComponents = {
+            'RAID-1': { perf: 2, data: 2, parity: 0 },
+            'RAID-5': { perf: 2, data: (hosts) => hosts >= 6 ? 4 : 2, parity: 1 },
+            'RAID-6': { perf: 3, data: 4, parity: 2 }
+        };
+
+        // Help box toggle
+        const helpIcon = document.querySelector('.help-icon');
+        const helpBox = document.querySelector('.help-box');
+        helpIcon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            helpBox.classList.toggle('visible');
+        });
+        document.addEventListener('click', (e) => {
+            if (!helpBox.contains(e.target) && !helpIcon.contains(e.target)) {
+                helpBox.classList.remove('visible');
+            }
+        });
+
+        function validateComponents(policy, components, hostCount) {
+            const expected = expectedComponents[policy];
+            const perfCount = expected.perf;
+            const dataCount = typeof expected.data === 'function' ? expected.data(hostCount) : expected.data;
+            const parityCount = expected.parity;
+
+            const perfValid = components.performance.length === perfCount && new Set(components.performance.map(c => c.hostId)).size === perfCount;
+            const dataValid = components.capacity.length === dataCount && new Set(components.capacity.map(c => c.hostId)).size === dataCount;
+            const parityValid = components.parity.length === parityCount && (parityCount === 0 || new Set(components.parity.map(c => c.hostId)).size === parityCount);
+
+            return perfValid && dataValid && parityValid;
+        }
+
+        function initCluster() {
+            cluster.innerHTML = '';
+            const usedNames = new Set();
+            const totalVMs = Math.min(numHosts * 9, numHosts * (Math.floor(Math.random() * 2) + 2)); // Cap at 9 VMs per host
+
+            for (let i = 0; i < numHosts; i++) {
+                const hostCluster = document.createElement('div');
+                hostCluster.className = 'host-cluster';
+                hostCluster.dataset.id = i;
+
+                const vmsDiv = document.createElement('div');
+                vmsDiv.className = 'vms';
+
+                const hostContainer = document.createElement('div');
+                hostContainer.className = 'host-container';
+
+                const host = document.createElement('div');
+                host.className = 'host';
+                host.dataset.id = i;
+
+                const metricsDiv = document.createElement('div');
+                metricsDiv.className = 'metrics';
+                const cpuMetric = createMetric('cpu', 'microchip');
+                const memMetric = createMetric('memory', 'memory');
+                metricsDiv.appendChild(cpuMetric);
+                metricsDiv.appendChild(memMetric);
+                updateMetric(cpuMetric, Math.floor(Math.random() * 71) + 20);
+                updateMetric(memMetric, Math.floor(Math.random() * 71) + 20);
+
+                const hostSeparator = document.createElement('div');
+                hostSeparator.className = 'separator';
+
+                const drivesDiv = document.createElement('div');
+                drivesDiv.className = 'drives';
+                for (let j = 0; j < numDrives; j++) {
+                    const drive = document.createElement('div');
+                    drive.className = 'drive';
+                    drive.textContent = 'NVMe';
+                    drive.dataset.hostId = i;
+                    drive.dataset.driveId = j;
+                    drive.onclick = (e) => {
+                        e.stopPropagation();
+                        selectItem(drive, 'drive');
+                    };
+                    drivesDiv.appendChild(drive);
+                }
+
+                const hostLabel = document.createElement('div');
+                hostLabel.className = 'host-label';
+                hostLabel.textContent = `ESXi Host ${i + 1}`;
+
+                host.appendChild(metricsDiv);
+                host.appendChild(hostSeparator);
+                host.appendChild(drivesDiv);
+                host.onclick = () => selectItem(host, 'host');
+                hostContainer.appendChild(host);
+                hostContainer.appendChild(hostLabel);
+                hostCluster.appendChild(vmsDiv);
+                hostCluster.appendChild(hostContainer);
+                cluster.appendChild(hostCluster);
+            }
+
+            // Distribute VMs evenly, max 9 per host
+            let vmCount = 0;
+            const vmsPerHost = Math.min(9, Math.ceil(totalVMs / numHosts));
+            for (let i = 0; i < numHosts && vmCount < totalVMs; i++) {
+                const hostVms = Math.min(vmsPerHost, totalVMs - vmCount);
+                for (let j = 0; j < hostVms; j++) {
+                    const baseName = baseNames[Math.floor(Math.random() * baseNames.length)];
+                    let uniqueName = `vm-${baseName}`;
+                    let suffix = 1;
+                    while (usedNames.has(uniqueName)) {
+                        uniqueName = `vm-${baseName.slice(0, 2)}${suffix++}`;
+                        if (suffix > 9) break;
+                    }
+                    usedNames.add(uniqueName);
+                    const vm = document.createElement('div');
+                    vm.className = 'vm';
+                    vm.textContent = uniqueName;
+
+                    let policy;
+                    do {
+                        policy = raidPolicies[Math.floor(Math.random() * raidPolicies.length)];
+                    } while (numHosts < minNodes[policy]);
+                    vm.dataset.policy = policy;
+                    vm.dataset.hostId = i;
+                    vm.dataset.vmId = vmCount;
+                    vm.dataset.name = uniqueName;
+                    vm.onclick = (e) => {
+                        e.stopPropagation();
+                        selectItem(vm, 'vm');
+                    };
+                    document.querySelector(`.host-cluster[data-id="${i}"] .vms`).appendChild(vm);
+
+                    let components;
+                    do {
+                        components = distributeComponents(policy, i);
+                    } while (!validateComponents(policy, components, numHosts));
+                    vmComponents[uniqueName] = components;
+                    vmCount++;
+                }
+            }
+
+            hostCountDisplay.textContent = numHosts;
+            updateDataPlacement(null);
+            updateButtonStates();
+        }
+
+        function createMetric(type, icon) {
+            const metric = document.createElement('div');
+            metric.className = 'metric';
+            metric.dataset.type = type;
+            const iconEl = document.createElement('i');
+            iconEl.className = `fas fa-${icon}`;
+            const percentage = document.createElement('span');
+            const bar = document.createElement('div');
+            bar.className = 'bar';
+            const fill = document.createElement('div');
+            fill.className = `fill ${type}`;
+            const marker = document.createElement('div');
+            marker.className = 'marker';
+            bar.appendChild(fill);
+            bar.appendChild(marker);
+            metric.appendChild(iconEl);
+            metric.appendChild(percentage);
+            metric.appendChild(bar);
+            return metric;
+        }
+
+        function updateMetric(metric, percentage) {
+            const fill = metric.querySelector('.fill');
+            const marker = metric.querySelector('.marker');
+            const span = metric.querySelector('span');
+            const type = metric.dataset.type;
+            const wholeNum = Math.round(percentage);
+            fill.style.width = `${wholeNum}%`;
+            marker.style.left = `${wholeNum}%`;
+            span.textContent = `${wholeNum.toString().padStart(2, '0')}%`;
+            fill.className = `fill ${type} ${wholeNum < 65 ? 'blue' : wholeNum <= 80 ? 'amber' : 'red'}`;
+        }
+
+        function distributeComponents(policy, primaryHostId) {
+            const hosts = Array.from({ length: numHosts }, (_, i) => i);
+            const components = { performance: [], capacity: [], parity: [] };
+
+            const perfComponents = policy === 'RAID-6' ? 3 : 2;
+            const capDataComponents = policy === 'RAID-1' ? 2 : policy === 'RAID-5' ? (numHosts >= 6 ? 4 : 2) : 4;
+            const parityComponents = policy === 'RAID-1' ? 0 : policy === 'RAID-5' ? 1 : 2;
+
+            if (numHosts < minNodes[policy]) {
+                console.error(`Not enough hosts (${numHosts}) for ${policy}`);
+                return components;
+            }
+
+            let perfHosts = new Set();
+            let availableHosts = [...hosts];
+            availableHosts.sort(() => Math.random() - 0.5);
+            while (perfHosts.size < perfComponents) {
+                if (availableHosts.length === 0) break;
+                const hostId = availableHosts.shift();
+                perfHosts.add(hostId);
+                components.performance.push({ hostId, driveId: Math.floor(Math.random() * numDrives) });
+            }
+
+            let capHosts = new Set();
+            availableHosts = [...hosts];
+            availableHosts.sort(() => Math.random() - 0.5);
+            while (capHosts.size < (capDataComponents + parityComponents)) {
+                if (availableHosts.length === 0) break;
+                const hostId = availableHosts.shift();
+                capHosts.add(hostId);
+                if (components.capacity.length < capDataComponents) {
+                    components.capacity.push({ hostId, driveId: Math.floor(Math.random() * numDrives) });
+                } else {
+                    components.parity.push({ hostId, driveId: Math.floor(Math.random() * numDrives) });
+                }
+            }
+
+            return components;
+        }
+
+        function redistributeComponents(vm, failedHostId) {
+            const policy = vm.dataset.policy;
+            const hosts = Array.from({ length: numHosts }, (_, i) => i).filter(h => h !== failedHostId && !document.querySelector(`.host[data-id="${h}"]`).classList.contains('failed'));
+            let components;
+
+            do {
+                components = { performance: [], capacity: [], parity: [] };
+                const perfComponents = policy === 'RAID-6' ? 3 : 2;
+                const capDataComponents = policy === 'RAID-1' ? 2 : policy === 'RAID-5' ? (hosts.length >= 6 ? 4 : 2) : 4;
+                const parityComponents = policy === 'RAID-1' ? 0 : policy === 'RAID-5' ? 1 : 2;
+
+                if (hosts.length < minNodes[policy]) {
+                    console.warn(`Not enough hosts (${hosts.length}) for ${policy} after failure`);
+                    return;
+                }
+
+                let perfHosts = new Set();
+                let availableHosts = [...hosts];
+                availableHosts.sort(() => Math.random() - 0.5);
+                while (perfHosts.size < perfComponents) {
+                    if (availableHosts.length === 0) break;
+                    const hostId = availableHosts.shift();
+                    perfHosts.add(hostId);
+                    components.performance.push({ hostId, driveId: Math.floor(Math.random() * numDrives) });
+                }
+
+                let capHosts = new Set();
+                availableHosts = [...hosts];
+                availableHosts.sort(() => Math.random() - 0.5);
+                while (capHosts.size < (capDataComponents + parityComponents)) {
+                    if (availableHosts.length === 0) break;
+                    const hostId = availableHosts.shift();
+                    capHosts.add(hostId);
+                    if (components.capacity.length < capDataComponents) {
+                        components.capacity.push({ hostId, driveId: Math.floor(Math.random() * numDrives) });
+                    } else {
+                        components.parity.push({ hostId, driveId: Math.floor(Math.random() * numDrives) });
+                    }
+                }
+            } while (!validateComponents(policy, components, hosts.length));
+
+            vmComponents[vm.dataset.name] = components;
+        }
+
+        function changeHostCount(delta) {
+            numHosts = Math.max(3, Math.min(8, numHosts + delta));
+            resetSimulation();
+        }
+
+        let selectedItem = null;
+        let selectedType = null;
+        function selectItem(item, type) {
+            clearSelection();
+            item.classList.add('selected');
+            selectedItem = item;
+            selectedType = type;
+            if (type === 'vm') {
+                highlightComponents(item);
+                highlightAssociatedDrives(item);
+            }
+            updateButtonStates();
+        }
+
+        function clearSelection() {
+            document.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
+            document.querySelectorAll('.performance, .capacity, .parity, .overlap').forEach(el => el.classList.remove('performance', 'capacity', 'parity', 'overlap'));
+            document.querySelectorAll('.drive').forEach(drive => {
+                if (!drive.classList.contains('failed')) {
+                    drive.textContent = 'NVMe';
+                }
+            });
+            selectedItem = null;
+            selectedType = null;
+            updateButtonStates();
+        }
+
+        function highlightAssociatedDrives(vm) {
+            const vmName = vm.dataset.name;
+            const components = vmComponents[vmName];
+
+            const driveUsage = new Map();
+            components.performance.forEach(comp => {
+                const key = `${comp.hostId}-${comp.driveId}`;
+                if (!driveUsage.has(key)) driveUsage.set(key, []);
+                driveUsage.get(key).push('performance');
+            });
+            components.capacity.forEach(comp => {
+                const key = `${comp.hostId}-${comp.driveId}`;
+                if (!driveUsage.has(key)) driveUsage.set(key, []);
+                driveUsage.get(key).push('capacity');
+            });
+            components.parity.forEach(comp => {
+                const key = `${comp.hostId}-${comp.driveId}`;
+                if (!driveUsage.has(key)) driveUsage.set(key, []);
+                driveUsage.get(key).push('parity');
+            });
+
+            driveUsage.forEach((types, key) => {
+                const [hostId, driveId] = key.split('-').map(Number);
+                const drive = document.querySelector(`.drive[data-host-id="${hostId}"][data-drive-id="${driveId}"]`);
+                if (drive && !drive.classList.contains('failed')) {
+                    if (types.length > 1) {
+                        if (types.includes('parity')) {
+                            drive.textContent = `P${components.parity.findIndex(c => c.hostId === hostId && c.driveId === driveId) + 1}`;
+                            drive.classList.add('parity');
+                            if (types.length === 3) console.warn(`Triple overlap (perf, cap, parity) on ${key}`);
+                        } else {
+                            drive.classList.add('overlap');
+                            drive.textContent = 'P+C';
+                        }
+                    } else {
+                        const type = types[0];
+                        if (type === 'performance') drive.classList.add('performance');
+                        else if (type === 'capacity') drive.classList.add('capacity');
+                        else if (type === 'parity') {
+                            drive.textContent = `P${components.parity.findIndex(c => c.hostId === hostId && c.driveId === driveId) + 1}`;
+                            drive.classList.add('parity');
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateButtonStates() {
+            const vmotionBtn = document.getElementById('vmotionBtn');
+            vmotionBtn.disabled = !(selectedType === 'vm' && findAvailableHost(parseInt(selectedItem.dataset.hostId)));
+        }
+
+        function simulateVMotion() {
+            if (!selectedItem || selectedType !== 'vm') {
+                alert('Please select a VM to vMotion!');
+                return;
+            }
+            const vm = selectedItem;
+            const oldHostId = parseInt(vm.dataset.hostId);
+            const newHost = findAvailableHost(oldHostId);
+            if (!newHost) {
+                alert('No available host for vMotion!');
+                return;
+            }
+            const newHostVms = document.querySelectorAll(`.host-cluster[data-id="${newHost.dataset.id}"] .vm`).length;
+            if (newHostVms >= 9) {
+                alert('Target host already has maximum 9 VMs!');
+                return;
+            }
+
+            vm.classList.add('moving');
+            setTimeout(() => {
+                const newVmsDiv = document.querySelector(`.host-cluster[data-id="${newHost.dataset.id}"] .vms`);
+                newVmsDiv.appendChild(vm);
+                vm.dataset.hostId = newHost.dataset.id;
+                vm.classList.remove('moving');
+                const components = vmComponents[vm.dataset.name];
+                components.performance.forEach(comp => { if (comp.hostId === oldHostId) comp.hostId = parseInt(newHost.dataset.id); });
+                components.capacity.forEach(comp => { if (comp.hostId === oldHostId) comp.hostId = parseInt(newHost.dataset.id); });
+                components.parity.forEach(comp => { if (comp.hostId === oldHostId) comp.hostId = parseInt(newHost.dataset.id); });
+                highlightAssociatedDrives(vm);
+                updateMetricsForHost(oldHostId);
+                updateMetricsForHost(parseInt(newHost.dataset.id));
+            }, 1000);
+        }
+
+        function simulateFailure() {
+            if (!selectedItem) {
+                alert('Please select a target first!');
+                return;
+            }
+            const target = document.getElementById('failureTarget').value;
+            if (target === 'host' && selectedType === 'host') {
+                simulateHostFailure(selectedItem);
+            } else if (target === 'drive' && selectedType === 'drive') {
+                simulateDriveFailure(selectedItem);
+            } else {
+                alert('Mismatch between selected item and failure type!');
+            }
+            checkVMRecoverability();
+        }
+
+        function simulateHostFailure(host) {
+            host.classList.add('failed');
+            const failedHostId = parseInt(host.dataset.id);
+            const vms = Array.from(document.querySelectorAll(`.host-cluster[data-id="${failedHostId}"] .vm`));
+            vms.forEach(vm => {
+                vm.classList.add('impacted');
+                const newHost = findAvailableHost(failedHostId);
+                if (newHost) {
+                    const newHostVms = document.querySelectorAll(`.host-cluster[data-id="${newHost.dataset.id}"] .vm`).length;
+                    if (newHostVms < 9) {
+                        setTimeout(() => {
+                            const newVmsDiv = document.querySelector(`.host-cluster[data-id="${newHost.dataset.id}"] .vms`);
+                            newVmsDiv.appendChild(vm);
+                            vm.dataset.hostId = newHost.dataset.id;
+                            vm.classList.add('resync');
+                            redistributeComponents(vm, failedHostId);
+                            highlightAssociatedDrives(vm);
+                            setTimeout(() => vm.classList.remove('resync'), 1000);
+                            updateMetricsForHost(parseInt(newHost.dataset.id));
+                        }, 1000);
+                    } else {
+                        vm.classList.add('unrecoverable');
+                    }
+                }
+            });
+            updateDataPlacement(null, true);
+
+            Object.keys(vmComponents).forEach(vmName => {
+                const components = vmComponents[vmName];
+                if (components.performance.some(comp => comp.hostId === failedHostId) || 
+                    components.capacity.some(comp => comp.hostId === failedHostId) ||
+                    components.parity.some(comp => comp.hostId === failedHostId)) {
+                    const vm = document.querySelector(`.vm[data-name="${vmName}"]`);
+                    if (vm && !vm.classList.contains('impacted')) {
+                        vm.classList.add('impacted');
+                        if (!vm.classList.contains('resync')) {
+                            redistributeComponents(vm, failedHostId);
+                            highlightAssociatedDrives(vm);
+                        }
+                    }
+                }
+            });
+
+            const hostContainer = host.parentElement;
+            const existingRecoverBtn = hostContainer.querySelector('.recover-btn');
+            if (!existingRecoverBtn) {
+                const recoverBtn = document.createElement('button');
+                recoverBtn.className = 'recover-btn';
+                recoverBtn.textContent = 'Recover';
+                recoverBtn.onclick = () => recoverHost(host);
+                hostContainer.appendChild(recoverBtn);
+            }
+        }
+
+        function recoverHost(host) {
+            host.classList.remove('failed');
+            const hostId = parseInt(host.dataset.id);
+            const hostContainer = host.parentElement;
+            const recoverBtn = hostContainer.querySelector('.recover-btn');
+            if (recoverBtn) recoverBtn.remove();
+
+            host.querySelectorAll('.drive.failed').forEach(drive => drive.classList.remove('failed'));
+
+            Object.keys(vmComponents).forEach(vmName => {
+                const vm = document.querySelector(`.vm[data-name="${vmName}"]`);
+                if (vm && (vm.classList.contains('impacted') || vm.classList.contains('unrecoverable'))) {
+                    vm.classList.remove('impacted', 'resync', 'unrecoverable');
+                    let components;
+                    do {
+                        components = distributeComponents(vm.dataset.policy, parseInt(vm.dataset.hostId));
+                    } while (!validateComponents(vm.dataset.policy, components, numHosts));
+                    vmComponents[vmName] = components;
+                    highlightAssociatedDrives(vm);
+                }
+            });
+
+            updateMetricsForHost(hostId);
+            updateDataPlacement(null);
+            checkVMRecoverability();
+        }
+
+        function simulateDRS() {
+            const hosts = Array.from(document.querySelectorAll('.host:not(.failed)'));
+            const totalVMs = document.querySelectorAll('.vm').length;
+            const vmsPerHost = Math.min(9, Math.floor(totalVMs / hosts.length));
+            const extraVMs = totalVMs % hosts.length;
+
+            const allVMs = Array.from(document.querySelectorAll('.vm'));
+            allVMs.forEach(vm => vm.parentNode.removeChild(vm));
+
+            let vmIndex = 0;
+            hosts.forEach((host, index) => {
+                const targetVMs = Math.min(vmsPerHost + (index < extraVMs ? 1 : 0), 9);
+                for (let i = 0; i < targetVMs && vmIndex < allVMs.length; i++) {
+                    const vm = allVMs[vmIndex++];
+                    vm.classList.add('moving');
+                    setTimeout(() => {
+                        const vmsDiv = document.querySelector(`.host-cluster[data-id="${host.dataset.id}"] .vms`);
+                        vmsDiv.appendChild(vm);
+                        const oldHostId = parseInt(vm.dataset.hostId);
+                        vm.dataset.hostId = host.dataset.id;
+                        vm.classList.remove('moving');
+                        const components = vmComponents[vm.dataset.name];
+                        components.performance.forEach(comp => { if (comp.hostId === oldHostId) comp.hostId = parseInt(host.dataset.id); });
+                        components.capacity.forEach(comp => { if (comp.hostId === oldHostId) comp.hostId = parseInt(host.dataset.id); });
+                        components.parity.forEach(comp => { if (comp.hostId === oldHostId) comp.hostId = parseInt(host.dataset.id); });
+                        highlightAssociatedDrives(vm);
+                        updateMetricsForHost(parseInt(host.dataset.id));
+                    }, 1000);
+                }
+            });
+
+            const hostMetrics = hosts.map(host => ({
+                hostId: parseInt(host.dataset.id),
+                cpu: parseInt(host.querySelector('.metric[data-type="cpu"] span').textContent),
+                memory: parseInt(host.querySelector('.metric[data-type="memory"] span').textContent),
+                vmCount: document.querySelectorAll(`.host-cluster[data-id="${host.dataset.id}"] .vm`).length
+            }));
+
+            const avgCPU = Math.round(hostMetrics.reduce((sum, h) => sum + h.cpu, 0) / hosts.length);
+            const avgMemory = Math.round(hostMetrics.reduce((sum, h) => sum + h.memory, 0) / hosts.length);
+
+            hosts.forEach((host, i) => {
+                const cpuAdjust = Math.min(90, Math.max(20, avgCPU + Math.floor(Math.random() * 4) - 2));
+                const memAdjust = Math.min(90, Math.max(20, avgMemory + Math.floor(Math.random() * 4) - 2));
+                updateMetric(host.querySelector('.metric[data-type="cpu"]'), cpuAdjust);
+                updateMetric(host.querySelector('.metric[data-type="memory"]'), memAdjust);
+            });
+        }
+
+        function updateMetricsForHost(hostId) {
+            const host = document.querySelector(`.host[data-id="${hostId}"]`);
+            const vmCount = document.querySelectorAll(`.host-cluster[data-id="${hostId}"] .vm`).length;
+            const cpuBase = Math.round(20 + vmCount * 10);
+            const memBase = Math.round(20 + vmCount * 12);
+            updateMetric(host.querySelector('.metric[data-type="cpu"]'), Math.min(90, cpuBase + Math.floor(Math.random() * 11) - 5));
+            updateMetric(host.querySelector('.metric[data-type="memory"]'), Math.min(90, memBase + Math.floor(Math.random() * 11) - 5));
+        }
+
+        function simulateDriveFailure(drive) {
+            drive.classList.add('failed');
+            const hostId = parseInt(drive.dataset.hostId);
+            const driveId = parseInt(drive.dataset.driveId);
+
+            Object.keys(vmComponents).forEach(vmName => {
+                const components = vmComponents[vmName];
+                if (components.performance.some(comp => comp.hostId === hostId && comp.driveId === driveId) ||
+                    components.capacity.some(comp => comp.hostId === hostId && comp.driveId === driveId) ||
+                    components.parity.some(comp => comp.hostId === hostId && comp.driveId === driveId)) {
+                    const vm = document.querySelector(`.vm[data-name="${vmName}"]`);
+                    if (vm) {
+                        vm.classList.add('impacted');
+                        vm.classList.add('resync');
+                        redistributeComponents(vm, hostId);
+                        highlightComponents(vm, true);
+                        highlightAssociatedDrives(vm);
+                    }
+                }
+            });
+        }
+
+        function checkVMRecoverability() {
+            Object.keys(vmComponents).forEach(vmName => {
+                const vm = document.querySelector(`.vm[data-name="${vmName}"]`);
+                if (!vm) return;
+
+                const policy = vm.dataset.policy;
+                const ftt = fttValues[policy];
+                const components = vmComponents[vmName];
+                const failedHosts = new Set();
+                const failedDrives = new Set();
+
+                components.performance.forEach(comp => {
+                    const host = document.querySelector(`.host[data-id="${comp.hostId}"]`);
+                    const drive = document.querySelector(`.drive[data-host-id="${comp.hostId}"][data-drive-id="${comp.driveId}"]`);
+                    if (host && host.classList.contains('failed')) failedHosts.add(comp.hostId);
+                    if (drive && drive.classList.contains('failed')) failedDrives.add(`${comp.hostId}-${comp.driveId}`);
+                });
+                components.capacity.forEach(comp => {
+                    const host = document.querySelector(`.host[data-id="${comp.hostId}"]`);
+                    const drive = document.querySelector(`.drive[data-host-id="${comp.hostId}"][data-drive-id="${comp.driveId}"]`);
+                    if (host && host.classList.contains('failed')) failedHosts.add(comp.hostId);
+                    if (drive && drive.classList.contains('failed')) failedDrives.add(`${comp.hostId}-${comp.driveId}`);
+                });
+                components.parity.forEach(comp => {
+                    const host = document.querySelector(`.host[data-id="${comp.hostId}"]`);
+                    const drive = document.querySelector(`.drive[data-host-id="${comp.hostId}"][data-drive-id="${comp.driveId}"]`);
+                    if (host && host.classList.contains('failed')) failedHosts.add(comp.hostId);
+                    if (drive && drive.classList.contains('failed')) failedDrives.add(`${comp.hostId}-${comp.driveId}`);
+                });
+
+                const totalFailures = failedHosts.size + failedDrives.size;
+                if (totalFailures > ftt) {
+                    vm.classList.remove('impacted', 'resync');
+                    vm.classList.add('unrecoverable');
+                } else if (totalFailures === 0 && vm.classList.contains('unrecoverable')) {
+                    vm.classList.remove('unrecoverable');
+                }
+            });
+        }
+
+        function findAvailableHost(excludeId) {
+            const hosts = document.querySelectorAll('.host:not(.failed)');
+            const available = Array.from(hosts).filter(h => parseInt(h.dataset.id) !== excludeId);
+            return available[Math.floor(Math.random() * available.length)];
+        }
+
+        function highlightComponents(vm, impacted = false) {
+            const policy = vm.dataset.policy;
+            updateDataPlacement(policy, impacted || vm.classList.contains('impacted'));
+        }
+
+        function updateDataPlacement(policy = null, impacted = false) {
+            dataPlacement.innerHTML = '';
+            let placementHTML = '';
+            const state = impacted ? 'Impacted' : 'Normal';
+
+            if (!policy) {
+                placementHTML = `<p>Select a VM to see its data placement.</p>`;
+            } else if (policy === 'RAID-1') {
+                placementHTML = `
+                    <div class="leg">Performance Leg (RAID-1): 
+                        <div class="component performance ${impacted ? 'resync' : 'highlighted'}">C1</div>
+                        <div class="component performance ${impacted ? 'resync' : 'highlighted'}">C2</div>
+                    </div>
+                    <div class="leg">Capacity Leg (RAID-1): 
+                        <div class="component capacity ${impacted ? 'resync' : 'highlighted'}">C1</div>
+                        <div class="component capacity ${impacted ? 'resync' : 'highlighted'}">C2</div>
+                    </div>
+                    <p>Policy: ${policy} (${state})</p>
+                `;
+            } else if (policy === 'RAID-5') {
+                const dataComponents = numHosts >= 6 ? 4 : 2;
+                const perfLeg = `
+                    <div class="leg">Performance Leg (RAID-1): 
+                        <div class="component performance ${impacted ? 'resync' : 'highlighted'}">C1</div>
+                        <div class="component performance ${impacted ? 'resync' : 'highlighted'}">C2</div>
+                    </div>`;
+                const capLeg = dataComponents === 4 
+                    ? `<div class="leg">Capacity Leg (RAID-5, 4+1): 
+                        <div class="component capacity ${impacted ? 'resync' : 'highlighted'}">D1</div>
+                        <div class="component capacity ${impacted ? 'resync' : 'highlighted'}">D2</div>
+                        <div class="component capacity ${impacted ? 'resync' : 'highlighted'}">D3</div>
+                        <div class="component capacity ${impacted ? 'resync' : 'highlighted'}">D4</div>
+                        <div class="component parity ${impacted ? 'resync' : 'highlighted'}">P</div>
+                    </div>`
+                    : `<div class="leg">Capacity Leg (RAID-5, 2+1): 
+                        <div class="component capacity ${impacted ? 'resync' : 'highlighted'}">D1</div>
+                        <div class="component capacity ${impacted ? 'resync' : 'highlighted'}">D2</div>
+                        <div class="component parity ${impacted ? 'resync' : 'highlighted'}">P</div>
+                    </div>`;
+                placementHTML = `${perfLeg}${capLeg}<p>Policy: ${policy} (${state})</p>`;
+            } else if (policy === 'RAID-6') {
+                const perfLeg = `
+                    <div class="leg">Performance Leg (RAID-1): 
+                        <div class="component performance ${impacted ? 'resync' : 'highlighted'}">C1</div>
+                        <div class="component performance ${impacted ? 'resync' : 'highlighted'}">C2</div>
+                        <div class="component performance ${impacted ? 'resync' : 'highlighted'}">C3</div>
+                    </div>`;
+                const capLeg = `
+                    <div class="leg">Capacity Leg (RAID-6, 4+2): 
+                        <div class="component capacity ${impacted ? 'resync' : 'highlighted'}">D1</div>
+                        <div class="component capacity ${impacted ? 'resync' : 'highlighted'}">D2</div>
+                        <div class="component capacity ${impacted ? 'resync' : 'highlighted'}">D3</div>
+                        <div class="component capacity ${impacted ? 'resync' : 'highlighted'}">D4</div>
+                        <div class="component parity ${impacted ? 'resync' : 'highlighted'}">P1</div>
+                        <div class="component parity ${impacted ? 'resync' : 'highlighted'}">P2</div>
+                    </div>`;
+                placementHTML = `${perfLeg}${capLeg}<p>Policy: ${policy} (${state})</p>`;
+            }
+            dataPlacement.innerHTML = placementHTML;
+        }
+
+        function resetSimulation() {
+            clearSelection();
+            document.querySelectorAll('.failed').forEach(el => el.classList.remove('failed'));
+            document.querySelectorAll('.impacted').forEach(el => el.classList.remove('impacted'));
+            document.querySelectorAll('.resync').forEach(el => el.classList.remove('resync'));
+            document.querySelectorAll('.unrecoverable').forEach(el => el.classList.remove('unrecoverable'));
+            document.querySelectorAll('.recover-btn').forEach(btn => btn.remove());
+            initCluster();
+        }
+
+        window.onload = initCluster;
+    </script>
+</body>
+</html>
